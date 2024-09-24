@@ -38,20 +38,9 @@ impl<'a> Engine<'a> {
     pub async fn new(window: &'a Window) -> Self {
         let size = window.inner_size();
 
-        let pri_instance = Instance::new(InstanceDescriptor {
-            backends: Backends::PRIMARY,
-            ..Default::default()
-        });
+        let instance = Instance::new(InstanceDescriptor::default());
 
-        let sec_instance = Instance::new(InstanceDescriptor {
-            backends: Backends::SECONDARY,
-            ..Default::default()
-        });
-
-        let (surface, instance) = match pri_instance.create_surface(window) {
-            Ok(surface) => (surface, pri_instance),
-            Err(_) => (sec_instance.create_surface(window).unwrap(), sec_instance),
-        };
+        let surface = instance.create_surface(window).unwrap();
 
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
