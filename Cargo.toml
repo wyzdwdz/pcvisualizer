@@ -5,13 +5,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
-bytemuck = { version = "1.16", features = ["derive"] }
+bytemuck = { version = "1.18", features = ["derive"] }
 cgmath = "0.18"
-egui = "0.28"
-egui-wgpu = "0.28"
-egui-winit = "0.28"
+egui = "0.29"
+egui-wgpu = "0.29"
+egui-winit = "0.29"
 env_logger = "0.11"
 pcd-rs = { version = "0.11", features = ["derive"] }
 pollster = "0.3"
-wgpu = "0.20"
-winit = "0.29"
+wgpu = "22.1"
+winit = "0.30"

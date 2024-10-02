@@ -3,61 +3,78 @@ mod engine;
 use engine::Engine;
 use wgpu::SurfaceError;
 use winit::{
+    application::ApplicationHandler,
     dpi::LogicalSize,
-    event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::WindowBuilder,
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Window, WindowId},
 };
 
-pub async fn run() {
-    env_logger::init();
+#[derive(Default)]
+struct App {
+    engine: Option<Engine>,
+}
 
-    let event_loop = EventLoop::new().unwrap();
-    let window = WindowBuilder::new()
-        .with_title("pcvisualizer")
-        .with_inner_size(LogicalSize::new(1280, 720))
-        .build(&event_loop)
-        .unwrap();
+impl ApplicationHandler for App {
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let window_attrs = Window::default_attributes()
+            .with_title("pcvisualizer")
+            .with_inner_size(LogicalSize::new(1280, 720));
 
-    let mut engine = Engine::new(&window).await;
-    let mut surface_configured = false;
+        let window = event_loop.create_window(window_attrs).unwrap();
+        self.engine = Some(Engine::new(window));
+    }
 
-    event_loop
-        .run(move |event, control_flow| match event {
-            Event::WindowEvent {
-                window_id,
-                ref event,
-            } if window_id == engine.window().id() => {
-                if !engine.input(event) {
-                    match event {
-                        WindowEvent::CloseRequested => control_flow.exit(),
-                        WindowEvent::Resized(physical_size) => {
-                            surface_configured = true;
-                            engine.resize(*physical_size);
-                        }
-                        WindowEvent::RedrawRequested => {
-                            engine.window().request_redraw();
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
+        let Some(ref mut engine) = self.engine else {
+            return;
+        };
 
-                            if !surface_configured {
-                                return;
-                            }
+        if window_id != engine.window().id() {
+            return;
+        }
 
-                            engine.update();
-                            match engine.render() {
-                                Ok(_) => {}
-                                Err(SurfaceError::Lost | SurfaceError::Outdated) => {
-                                    engine.resize(engine.size())
-                                }
-                                Err(SurfaceError::OutOfMemory | SurfaceError::Timeout) => {
-                                    control_flow.exit()
-                                }
-                            }
-                        }
-                        _ => {}
+        if engine.input(&event) {
+            return;
+        }
+
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+
+            WindowEvent::Resized(physical_size) => {
+                engine.resize(physical_size);
+            }
+
+            WindowEvent::RedrawRequested => {
+                engine.update();
+                match engine.render() {
+                    Ok(_) => {}
+                    Err(SurfaceError::Lost | SurfaceError::Outdated) => {
+                        engine.resize(engine.size())
                     }
+                    Err(SurfaceError::OutOfMemory | SurfaceError::Timeout) => event_loop.exit(),
                 }
             }
             _ => {}
-        })
-        .unwrap();
+        }
+    }
+
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
+        let Some(ref mut engine) = self.engine else {
+            return;
+        };
+
+        engine.window().request_redraw();
+    }
+}
+
+pub fn run() {
+    let event_loop = EventLoop::new().unwrap();
+    let mut app = App::default();
+    let _ = event_loop.run_app(&mut app);
 }

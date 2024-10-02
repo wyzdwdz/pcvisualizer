@@ -1,4 +1,4 @@
-use std::{mem, path::PathBuf};
+use std::{mem, path::PathBuf, sync::Arc};
 
 use super::{camera::Camera, texture::Texture};
 
@@ -89,7 +89,7 @@ impl PointCloud {
     pub fn new(
         device: &Device,
         camera: &Camera,
-        window: &Window,
+        window: Arc<Window>,
         config: &SurfaceConfiguration,
     ) -> Self {
         let point_size = 1.5;
@@ -179,6 +179,7 @@ impl PointCloud {
                 })],
             }),
             multiview: None,
+            cache: None,
         });
 
         Self {

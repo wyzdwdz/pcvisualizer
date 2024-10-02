@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use egui::{Align2, Button, Context, Rounding, Shadow, Visuals};
 use egui_wgpu::{Renderer, ScreenDescriptor};
 use egui_winit::State;
@@ -19,7 +21,7 @@ impl EguiRender {
         output_color_format: TextureFormat,
         output_depth_format: Option<TextureFormat>,
         msaa_samples: u32,
-        window: &Window,
+        window: Arc<Window>,
     ) -> Self {
         let context = Context::default();
         let id = context.viewport_id();
@@ -34,13 +36,14 @@ impl EguiRender {
 
         context.set_visuals(visuals);
 
-        let state = State::new(context.clone(), id, &window, None, None);
+        let state = State::new(context.clone(), id, &window, None, None, None);
 
         let renderer = Renderer::new(
             device,
             output_color_format,
             output_depth_format,
             msaa_samples,
+            false,
         );
 
         Self {
@@ -63,11 +66,10 @@ impl EguiRender {
         window: &Window,
         window_surface_view: &TextureView,
         screen_descriptor: ScreenDescriptor,
-        run_ui: impl FnOnce(&Context),
     ) {
         let raw_input = self.state.take_egui_input(&window);
-        let full_output = self.context.run(raw_input, |_ui| {
-            run_ui(&self.context);
+        let full_output = self.context.run(raw_input, |ui| {
+            layout(ui);
         });
 
         self.state
@@ -85,8 +87,9 @@ impl EguiRender {
         self.renderer
             .update_buffers(&device, &queue, encoder, &tris, &screen_descriptor);
 
-        {
-            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+        let mut render_pass = encoder
+            .begin_render_pass(&RenderPassDescriptor {
+                label: Some("Egui_render_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &window_surface_view,
                     resolve_target: None,
@@ -96,14 +99,13 @@ impl EguiRender {
                     },
                 })],
                 depth_stencil_attachment: None,
-                label: Some("Egui_render_pass"),
-                timestamp_writes: None,
                 occlusion_query_set: None,
-            });
+                timestamp_writes: None,
+            })
+            .forget_lifetime();
 
-            self.renderer
-                .render(&mut render_pass, &tris, &screen_descriptor);
-        }
+        self.renderer
+            .render(&mut render_pass, &tris, &screen_descriptor);
 
         for id in &full_output.textures_delta.free {
             self.renderer.free_texture(id);
@@ -111,7 +113,7 @@ impl EguiRender {
     }
 }
 
-pub fn layout(ui: &Context) {
+fn layout(ui: &Context) {
     egui::Window::new("pcvisualizer")
         .default_open(true)
         .max_width(640.0)

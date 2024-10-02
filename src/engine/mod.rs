@@ -1,15 +1,19 @@
 mod camera;
+// mod geometry;
 mod gui;
 mod pointcloud;
 mod texture;
 
+use std::sync::Arc;
+
 use camera::Camera;
 use egui_wgpu::ScreenDescriptor;
-use gui::{layout, EguiRender};
+use gui::EguiRender;
 use pointcloud::PointCloud;
+use pollster::FutureExt;
 use texture::Texture;
 use wgpu::{
-    Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
+    Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
     InstanceDescriptor, Limits, Operations, PowerPreference, Queue, RenderPassColorAttachment,
     RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
     TextureUsages, TextureViewDescriptor,
@@ -21,26 +25,25 @@ use winit::{
     window::Window,
 };
 
-pub struct Engine<'a> {
+pub struct Engine {
     size: PhysicalSize<u32>,
-    surface: Surface<'a>,
+    surface: Surface<'static>,
     config: SurfaceConfiguration,
     device: Device,
     queue: Queue,
     depth_texture: Texture,
     gui: EguiRender,
-    window: &'a Window,
+    window: Arc<Window>,
     camera: Camera,
     pointcloud: PointCloud,
 }
 
-impl<'a> Engine<'a> {
-    pub async fn new(window: &'a Window) -> Self {
-        let size = window.inner_size();
-
+impl Engine {
+    pub fn new(window: Window) -> Self {
+        let window_arc = Arc::new(window);
+        let size = window_arc.inner_size();
         let instance = Instance::new(InstanceDescriptor::default());
-
-        let surface = instance.create_surface(window).unwrap();
+        let surface = instance.create_surface(window_arc.clone()).unwrap();
 
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
@@ -48,7 +51,7 @@ impl<'a> Engine<'a> {
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
-            .await
+            .block_on()
             .unwrap();
 
         let (device, queue) = adapter
@@ -61,7 +64,7 @@ impl<'a> Engine<'a> {
                 },
                 None,
             )
-            .await
+            .block_on()
             .unwrap();
 
         let surface_caps = surface.get_capabilities(&adapter);
@@ -96,9 +99,9 @@ impl<'a> Engine<'a> {
 
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let gui = EguiRender::new(&device, config.format, None, 1, &window);
+        let gui = EguiRender::new(&device, config.format, None, 1, window_arc.clone());
 
-        let pointcloud = PointCloud::new(&device, &camera, window, &config);
+        let pointcloud = PointCloud::new(&device, &camera, window_arc.clone(), &config);
 
         Self {
             size,
@@ -108,7 +111,7 @@ impl<'a> Engine<'a> {
             queue,
             depth_texture,
             gui,
-            window,
+            window: window_arc,
             camera,
             pointcloud,
         }
@@ -223,7 +226,6 @@ impl<'a> Engine<'a> {
             &self.window,
             &view,
             screen_descriptor,
-            |ui| layout(ui),
         );
 
         self.queue.submit(std::iter::once(encoder.finish()));
