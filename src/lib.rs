@@ -1,5 +1,7 @@
 mod engine;
 
+use std::path::PathBuf;
+
 use engine::Engine;
 use wgpu::SurfaceError;
 use winit::{
@@ -13,6 +15,7 @@ use winit::{
 #[derive(Default)]
 struct App {
     engine: Option<Engine>,
+    pcd_path: Option<PathBuf>,
 }
 
 impl ApplicationHandler for App {
@@ -23,6 +26,15 @@ impl ApplicationHandler for App {
 
         let window = event_loop.create_window(window_attrs).unwrap();
         self.engine = Some(Engine::new(window));
+
+        let Some(ref mut engine) = self.engine else {
+            return;
+        };
+
+        match &self.pcd_path {
+            Some(path) => engine.set_pcd(&path),
+            None => (),
+        }
     }
 
     fn window_event(
@@ -73,8 +85,10 @@ impl ApplicationHandler for App {
     }
 }
 
-pub fn run() {
+pub fn run(pcd_path: Option<PathBuf>) {
+    env_logger::init();
     let event_loop = EventLoop::new().unwrap();
     let mut app = App::default();
+    app.pcd_path = pcd_path;
     let _ = event_loop.run_app(&mut app);
 }

@@ -96,6 +96,7 @@ impl Camera {
                     KeyCode::KeyS | KeyCode::ArrowDown => self.is_down_pressed = is_pressed,
                     KeyCode::KeyA | KeyCode::ArrowLeft => self.is_left_pressed = is_pressed,
                     KeyCode::KeyD | KeyCode::ArrowRight => self.is_right_pressed = is_pressed,
+                    KeyCode::KeyB => self.set_birdeye(),
                     _ => return false,
                 }
             }
@@ -149,5 +150,9 @@ impl Camera {
         if eye.z > 0.0 {
             self.eye = eye;
         }
+    }
+
+    fn set_birdeye(&mut self) {
+        self.camera_rotate(0.0, -1e8);
     }
 }

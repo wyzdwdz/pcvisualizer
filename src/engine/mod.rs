@@ -1,10 +1,10 @@
 mod camera;
-// mod geometry;
+mod geometry;
 mod gui;
 mod pointcloud;
 mod texture;
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use camera::Camera;
 use egui_wgpu::ScreenDescriptor;
@@ -13,7 +13,7 @@ use pointcloud::PointCloud;
 use pollster::FutureExt;
 use texture::Texture;
 use wgpu::{
-    Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
+    Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance,
     InstanceDescriptor, Limits, Operations, PowerPreference, Queue, RenderPassColorAttachment,
     RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError,
     TextureUsages, TextureViewDescriptor,
@@ -42,7 +42,12 @@ impl Engine {
     pub fn new(window: Window) -> Self {
         let window_arc = Arc::new(window);
         let size = window_arc.inner_size();
-        let instance = Instance::new(InstanceDescriptor::default());
+
+        let instance = Instance::new(InstanceDescriptor {
+            backends: Backends::PRIMARY,
+            ..Default::default()
+        });
+
         let surface = instance.create_surface(window_arc.clone()).unwrap();
 
         let adapter = instance
@@ -153,11 +158,7 @@ impl Engine {
                 _ => return false,
             },
             WindowEvent::DroppedFile(path) => {
-                match self.pointcloud.load_pcd(path, &self.device) {
-                    Err(e) => eprintln!("{:?}", e),
-                    _ => {}
-                }
-                self.window.request_redraw();
+                self.set_pcd(path);
             }
             _ => return false,
         }
@@ -232,5 +233,13 @@ impl Engine {
         output.present();
 
         Ok(())
+    }
+
+    pub fn set_pcd(&mut self, path: &PathBuf) {
+        match self.pointcloud.load_pcd(path, &self.device) {
+            Err(e) => eprintln!("{:?}", e),
+            _ => {}
+        }
+        self.window.request_redraw();
     }
 }
