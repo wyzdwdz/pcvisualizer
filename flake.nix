@@ -51,6 +51,13 @@
             # Required by rust-analyzer
             RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
           };
+
+          LD_LIBRARY_PATH = with pkgs; nixpkgs.lib.makeLibraryPath [
+              wayland
+              libxkbcommon
+              libGL
+              vulkan-loader
+          ];
         };
       });
     };
